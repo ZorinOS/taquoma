@@ -1,0 +1,113 @@
+<!doctype html><meta charset="utf-8">
+<title>Taquoma vs Tahoma layout test</title>
+<!--
+Opens Tahoma (installed on this computer, or Tahoma.ttf / TahomaBd.ttf placed
+in this folder) and Taquoma (../ttfs and ../webfonts) and lays out the same
+text in both: paragraphs in several scripts wrapped at three widths, five
+sizes, both weights, with kerning on (browsers' default), with kerning off
+(font-kerning: none) and with kerning and ligatures off. In every case every
+word must land at the same position, and line heights and the CSS ex, cap and
+ch units must agree.
+Browsers do not load fonts from file:// pages, so serve the repository:
+    python3 -m http.server 8000      (in the repository's top folder)
+then open http://localhost:8000/tests/layout-test.html
+-->
+<style>
+@font-face{font-family:Ref;src:local("Tahoma"),url(Tahoma.ttf);font-weight:400}
+@font-face{font-family:Ref;src:local("Tahoma Bold"),local("Tahoma-Bold"),url(TahomaBd.ttf);font-weight:700}
+@font-face{font-family:TaqTTF;src:url(../ttfs/Taquoma-Regular.ttf);font-weight:400}
+@font-face{font-family:TaqTTF;src:url(../ttfs/Taquoma-Bold.ttf);font-weight:700}
+@font-face{font-family:TaqW2;src:url(../webfonts/Taquoma-Regular.woff2);font-weight:400}
+@font-face{font-family:TaqW2;src:url(../webfonts/Taquoma-Bold.woff2);font-weight:700}
+body{margin:0;font:15px/1.5 system-ui,sans-serif} .box{line-height:normal}
+#report{position:relative;padding:20px;max-width:900px} #report h1{font-size:20px} .pass{color:#0a7a2a} .fail{color:#b00020}
+pre{white-space:pre-wrap;font-size:12px}
+</style>
+<body><div id=report><h1>Taquoma vs Tahoma layout test</h1><p id=status>Running…</p><pre id=details></pre></div><div id=root style="position:absolute;left:-10000px;top:0"></div>
+<script>
+const TEXTS = [
+ "The quick brown fox jumps over the lazy dog. Sphinx of black quartz, judge my vow! AVATAR Toyota WAVE Yo. \"Quoted\" (parens) [brackets] {braces} 0123456789 @#$%^&*_+-=<>?/|\\~`",
+ "Le cœur déçu mais l'âme plutôt naïve, Louÿs rêva de crapaüter en canoë au delà des îles, près du mälström où brûlent les novæ. Zwölf Boxkämpfer jagen Viktor quer über den großen Sylter Deich. Pchnąć w tę łódź jeża lub ośm skrzyń fig.",
+ "Tiếng Việt có dấu thanh: Người ta nói rằng chữ Quốc ngữ được ghép từ những ký tự Latinh, ở ữ ặ ễ ỵ.",
+ "Съешь же ещё этих мягких французских булок, да выпей чаю. Ξεσκεπάζω την ψυχοφθόρα βδελυγμία. Άλφα Έψιλον Ήτα.",
+ "שלום עולם, זוהי בדיקה של טקסט עברי. מִי שֶׁלֹּא טָעַם",
+ "مرحبا بالعالم، هذا اختبار للنص العربي. لا إله إلا الله. بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ",
+ "Decomposed: été ǹ ǎb ǒx Tǎ; precomposed Pinyin: nǐ hǎo, lǜ, ǚ",
+ "€ £ ¥ © ® ™ ° ± × ÷ ¶ § • … ‰ ‹ › « » “ ” ‘ ’ ‚ „ — –",
+ "Kerned pairs: Te To Tr Ty Ta LT AV AY Yo r. r, ra va fa nv. Tempus leo eu aenean sed diam urna tempor. Pulvinar vivamus fringilla lacus nec metus bibendum egestas. Iaculis massa nisl malesuada lacinia integer nunc posuere.",
+ "Characters neither font has fall back alike: → ⇒ ✓ ✗ ★ ■ ▲ ○ ♥ ₹ ₽ ẞ ℃ ﬀ, and precomposed ǎ ǒ ǹ K Å are built from base + mark.",
+];
+const FAMILIES = ["Ref", "TaqTTF", "TaqW2"];
+const SIZES = [11, 12, 13, 16, 24];
+const WIDTHS = [180, 260, 420];
+function measure(fam, weight, size, kern, text, width) {
+  const d = document.createElement('div');
+  d.className = 'box';
+  d.style.cssText = `font-family:${fam};font-weight:${weight};font-size:${size}px;font-kerning:${kern};width:${width}px;position:absolute;left:0;top:0`;
+  d.textContent = text;
+  document.getElementById('root').appendChild(d);
+  // word positions
+  const r = document.createRange(); const node = d.firstChild; const pos = [];
+  const re = /\S+/g; let m;
+  while ((m = re.exec(text))) { r.setStart(node, m.index); r.setEnd(node, m.index + m[0].length); const rects = r.getClientRects(); const b = rects[0]; pos.push([+b.left.toFixed(3), +b.top.toFixed(3), +r.getBoundingClientRect().width.toFixed(3)]); }
+  const h = d.getBoundingClientRect().height;
+  d.remove();
+  return {pos, h};
+}
+function units(fam, weight, size) {
+  const out = {};
+  for (const u of ['ex', 'cap', 'ch']) {
+    const d = document.createElement('div');
+    d.style.cssText = `font-family:${fam};font-weight:${weight};font-size:${size}px;width:100${u};position:absolute`;
+    document.getElementById('root').appendChild(d); out[u] = d.getBoundingClientRect().width; d.remove();
+  }
+  const s = document.createElement('div');
+  s.style.cssText = `font-family:${fam};font-weight:${weight};font-size:${size}px;position:absolute;line-height:normal`;
+  s.innerHTML = 'x<span style="display:inline-block;width:10px;height:10px;vertical-align:middle"></span><u>under</u>';
+  document.getElementById('root').appendChild(s); out.middle = s.querySelector('span').getBoundingClientRect().top - s.getBoundingClientRect().top; out.lineh = s.getBoundingClientRect().height; s.remove();
+  return out;
+}
+window.runTests = async () => {
+  const refFaces = await Promise.all([document.fonts.load('16px Ref'), document.fonts.load('bold 16px Ref')]);
+  for (const f of ['TaqTTF', 'TaqW2']) { await document.fonts.load(`16px ${f}`); await document.fonts.load(`bold 16px ${f}`); }
+  const loaded = [...document.fonts].map(f => `${f.family}/${f.weight}:${f.status}`);
+  if ([...document.fonts].some(f => f.status !== 'loaded')) return {loaded, error: 'Some fonts did not load (is Tahoma installed or placed next to this page, and is the page served over http?)'};
+  const results = {loaded, diffs: [], checked: 0, perMode: {}, unitDiffs: []};
+  for (const weight of [400, 700]) for (const size of SIZES) {
+    const ref = units('Ref', weight, size);
+    for (const fam of ['TaqTTF', 'TaqW2']) {
+      const u = units(fam, weight, size);
+      for (const k in ref) if (Math.abs(ref[k] - u[k]) > 0.001) results.unitDiffs.push({fam, weight, size, k, ref: ref[k], taq: u[k]});
+    }
+    // kerning on (the default), kerning off, then kerning and ligatures off (font-variant-ligatures: none)
+    for (const kern of ['auto', 'none', 'none;font-variant-ligatures:none']) for (const width of WIDTHS) for (let t = 0; t < TEXTS.length; t++) {
+      const a = measure('Ref', weight, size, kern, TEXTS[t], width);
+      for (const fam of ['TaqTTF', 'TaqW2']) {
+        const b = measure(fam, weight, size, kern, TEXTS[t], width);
+        results.checked++;
+        let bad = a.h !== b.h || a.pos.length !== b.pos.length;
+        let first = null;
+        for (let i = 0; !bad && i < a.pos.length; i++) {
+          if (Math.abs(a.pos[i][0] - b.pos[i][0]) > 0.01 || Math.abs(a.pos[i][1] - b.pos[i][1]) > 0.01 || Math.abs(a.pos[i][2] - b.pos[i][2]) > 0.01) { bad = true; first = i; }
+        }
+        const rec = {fam, weight, size, kern, width, t, h: [a.h, b.h], first, word: first !== null ? TEXTS[t].match(/\S+/g)[first] : null, a: first !== null ? a.pos[first] : null, b: first !== null ? b.pos[first] : null};
+        const mode = results.perMode[kern] ||= {checked: 0, differ: 0};
+        mode.checked++;
+        if (bad) { results.diffs.push(rec); mode.differ++; }
+      }
+    }
+  }
+  return results;
+};
+window.addEventListener('load', async () => {
+  const r = await runTests();
+  const status = document.getElementById('status'), details = document.getElementById('details');
+  if (r.error) { status.className = 'fail'; status.textContent = r.error; details.textContent = r.loaded.join('\n'); return; }
+  const ok = r.diffs.length === 0 && r.unitDiffs.length === 0;
+  status.className = ok ? 'pass' : 'fail';
+  const names = {'auto': 'kerning on', 'none': 'kerning off', 'none;font-variant-ligatures:none': 'kerning and ligatures off'};
+  const modes = Object.entries(r.perMode).map(([k, m]) => `${names[k]}: ${m.checked - m.differ}/${m.checked}`).join(', ');
+  status.textContent = `${ok ? 'PASS' : 'FAIL'}: ${r.checked - r.diffs.length}/${r.checked} text layouts identical (${modes}); ${r.unitDiffs.length} differences in line height / ex / cap / ch / vertical-align. ${navigator.userAgent}`;
+  details.textContent = [...r.diffs.slice(0, 50).map(d => JSON.stringify(d)), ...r.unitDiffs.slice(0, 50).map(d => JSON.stringify(d))].join('\n');
+});
+</script>

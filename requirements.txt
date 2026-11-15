@@ -1,0 +1,15 @@
+# The versions the fonts in ttfs/ and webfonts/ were built and checked with.
+# With these, the build is byte-for-byte reproducible; other versions give
+# the same glyphs and metrics but may store a table's bytes in another order.
+#
+# Building
+fonttools==4.67.0
+skia-pathops==0.9.2
+ttfautohint-py==0.6.1
+freetype-py==2.3.0
+brotli==1.2.1
+#
+# Checking (scripts/verify.py, scripts/render.py)
+uharfbuzz==0.57.0
+pillow==12.3.0
+numpy==2.5.3
